@@ -1,0 +1,101 @@
+---
+
+- hosts: all
+  become: true
+  become_method: doas
+  pre_tasks:  # Mandate that the following tasks be run first, useful with roles
+  - name: Update repository index and install generic packages
+    tags: always,packages
+    package:
+      name:
+        - gcc  # Required for Neovim plugins
+        - zip
+        - unzip
+        - doas
+        - ranger
+        - zsh
+        - zsh-syntax-highlighting
+        - zsh-autosuggestions
+      state: latest
+      update_cache: yes
+     #when: ansible_distribution in ["Debian", "Ubuntu"]
+
+  - name: Install Neovim on non-Debian-based systems
+    tags: always,packages
+    package:
+      name:
+        - neovim
+      state: latest
+    when: ansible_distribution not in ["Debian", "Ubuntu"]
+
+  - name: Check if Neovim is already installed on APT-based distros
+    tags: always,packages,apt,check
+    shell: command -v nvim
+    register: neovim_exists
+    ignore_errors: yes
+
+  - name: Install the newest version of Neovim for APT-based distros
+    tags: always,packages,apt
+    become: true
+    become_method: doas
+    ansible.builtin.shell:
+      cmd: rm /tmp/nvim-linux64.deb; wget https://github.com/neovim/neovim/releases/download/stable/nvim-linux64.deb -O /tmp/nvim-linux64.deb && apt install -y /tmp/nvim-linux64.deb && rm /tmp/nvim-linux64.deb
+    when: ansible_distribution in ["Debian", "Ubuntu"] and neovim_exists is failed
+
+- hosts: all
+  become: false
+  tasks:
+  - name: Copy Neovim configuration files
+    tags: always,config,files
+    copy:
+      src: user/config/nvim
+      dest: ~/.config
+     #mode: 0600
+
+  - name: Install Neovim dependencies
+    tags: always,config,packages
+    ansible.builtin.shell:
+      cmd: nvim --headless +Lazy install +q
+
+# Rust toolchain
+- hosts: compilers
+  become: false
+  tasks:
+  - name: Check if Cargo is installed
+    shell: command -v cargo
+    register: cargo_exists
+    ignore_errors: yes
+
+  - name: Download Rust Toolchain Installer
+    tags: download,rust
+    when: cargo_exists is failed
+    get_url:
+      url: https://sh.rustup.rs
+      dest: /tmp/rust_toolchain_install.sh
+      mode: '0755'
+      force: 'yes'
+
+  - name: Install Rust Toolchain
+    tags: package,rust
+    when: cargo_exists is failed
+    shell: /tmp/rust_toolchain_install.sh -y
+
+  - name: Remove Rust Toolchain Installer
+    tags: removal,rust
+    when: cargo_exists is failed
+    file:
+      path: /tmp/rust_toolchain_install.sh
+      state: absent
+
+- hosts: compilers
+  become: true
+  become_method: doas
+  tasks:
+  - name: Install compiler packages
+    tags: packages
+    package:
+      name:
+        - build-essential
+      state: latest
+    when: ansible_distribution in ["Debian", "Ubuntu"]  # Make universal
+
