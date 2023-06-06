@@ -1,0 +1,13 @@
+---
+
+- hosts: all
+  become: true
+  become_method: sudo
+  pre_tasks:  # Mandate that the following tasks be run first, useful with roles
+  - name: Update PM cache and upgrade all packages
+    tags: always,packages
+    package:
+      name: '*'
+      state: latest
+      update_cache: yes
+

@@ -2,7 +2,7 @@
 
 - hosts: all
   become: true
-  become_method: doas
+  become_method: sudo
   pre_tasks:  # Mandate that the following tasks be run first, useful with roles
   - name: Update repository index and install generic packages
     tags: always,packages
@@ -11,7 +11,6 @@
         - gcc  # Required for Neovim plugins
         - zip
         - unzip
-        - doas
         - ranger
         - zsh
         - zsh-syntax-highlighting
@@ -37,25 +36,25 @@
   - name: Install the newest version of Neovim for APT-based distros
     tags: always,packages,apt
     become: true
-    become_method: doas
+    become_method: sudo
     ansible.builtin.shell:
       cmd: rm /tmp/nvim-linux64.deb; wget https://github.com/neovim/neovim/releases/download/stable/nvim-linux64.deb -O /tmp/nvim-linux64.deb && apt install -y /tmp/nvim-linux64.deb && rm /tmp/nvim-linux64.deb
     when: ansible_distribution in ["Debian", "Ubuntu"] and neovim_exists is failed
 
-- hosts: all
-  become: false
-  tasks:
-  - name: Copy Neovim configuration files
-    tags: always,config,files
-    copy:
-      src: user/config/nvim
-      dest: ~/.config
-     #mode: 0600
+#- hosts: all
+#  become: false
+#  tasks:
+#  - name: Copy Neovim configuration files
+#    tags: always,config,files
+#    copy:
+#      src: user/config/nvim
+#      dest: ~/.config
+#     #mode: 0600
 
-  - name: Install Neovim dependencies
-    tags: always,config,packages
-    ansible.builtin.shell:
-      cmd: nvim --headless +Lazy install +q
+#  - name: Install Neovim dependencies
+#    tags: always,config,packages
+#    ansible.builtin.shell:
+#      cmd: nvim --headless +Lazy install +q
 
 # Rust toolchain
 - hosts: compilers
@@ -89,7 +88,7 @@
 
 - hosts: compilers
   become: true
-  become_method: doas
+  become_method: sudo
   tasks:
   - name: Install compiler packages
     tags: packages
